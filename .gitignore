@@ -1,0 +1,7 @@
+bin/
+obj/
+.settings/
+.project
+.cproject
+*.csv
+frontEnd

@@ -3,6 +3,7 @@
 
 #include <sstream>
 #include <fstream>
+#include <cstdio>
 
 #include "types.h"
 
@@ -25,11 +26,12 @@ Edge convertCSVLineIntoEdge(const char delim, const string& line, bool weighted)
     
     getline(ss, data, delim); e.source = stol(data);
     getline(ss, data, delim); e.destination = stol(data);
-    getline(ss, data, delim); /*time = stol(data);*/
+    //getline(ss, data, delim); /*time = stol(data);*/
 
     if(weighted){
-        getline(ss, data, delim);
-        e.weight = stol(data);
+        //getline(ss, data, delim);
+        //e.weight = stol(data);
+	e.weight = (rand() % 8) + 8;
     }
 
     if(line[0] == '-'){
@@ -67,14 +69,14 @@ bool assignLogicalID(NodeID& n, MapTable& VMap, NodeID& lastAssignedLogicalID){
 }
 
 
-EdgeList readBatchFromCSV(ifstream& in, int batchSize, int batch_id, bool weighted, MapTable& VMap, NodeID& lastAssignedLogicalID){
-    EdgeList el;
+void readBatchFromCSV(EdgeList& el, ifstream& in, int batchSize, int batch_id, bool weighted, MapTable& VMap, NodeID& lastAssignedLogicalID){
+	el.clear();
     int edgecount = 0;
     string line;      
 
     while(getline(in, line)){
         if(line != ""){          
-            Edge e = convertCSVLineIntoEdge(',', line, weighted);
+            Edge e = convertCSVLineIntoEdge(' ', line, weighted);
             if(assignLogicalID(e.source, VMap, lastAssignedLogicalID)) e.sourceExists = true;
             if(assignLogicalID(e.destination, VMap, lastAssignedLogicalID)) e.destExists = true;
             //e.batch_id = batch_id;
@@ -83,7 +85,7 @@ EdgeList readBatchFromCSV(ifstream& in, int batchSize, int batch_id, bool weight
             edgecount++;  
             if(edgecount == batchSize) break;   
         }             
-    }            
-    return el;
+    }
 }
+
 #endif  // FILEREADER_H_

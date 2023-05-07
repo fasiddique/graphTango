@@ -5,7 +5,7 @@ CFLAGS = -O2 -g -std=c++11 -fpermissive
 
 CXX = g++
 #CXXFLAGS = -std=c++11 -g -pthread -fopenmp -O3
-CXXFLAGS = -std=c++11 -g -pthread -O3
+CXXFLAGS = -std=c++11 -g -pthread -fopenmp -O3
 #CXXFLAGS = -std=c++11 -g -pthread -fopenmp
 #CXXFLAGS = -std=c++11 -g -pthread
 
@@ -26,10 +26,7 @@ DYN_OBJ := $(addprefix $(OBJ_DIR)/$(DYN_PREFIX),$(notdir $(patsubst %.c,%.o,$(wi
 DYN_OBJ += $(addprefix $(OBJ_DIR)/$(DYN_PREFIX),$(notdir $(patsubst %.cc,%.o,$(wildcard $(DYN_DIR)/*.cc))))
 
 .PHONY : all
-all : $(BIN_DIR)/errorExtractor frontEnd 
-
-$(BIN_DIR)/errorExtractor : errorExtractor.cc
-	$(CXX) $(CXXFLAGS) $< -o $@
+all : frontEnd 
 
 frontEnd : $(DYN_OBJ)
 	$(CXX) $(CXXFLAGS) $^ -o $@

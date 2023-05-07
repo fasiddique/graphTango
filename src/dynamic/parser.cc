@@ -80,10 +80,6 @@ cmd_args parse(int argc, char *argv[])
     while(-1 != (opt = getopt(argc, argv, "f:b:w:d:s:n:a:t:h"))) {
         switch(opt) {
 	case 'f':               
-	    if (getSuffix(optarg) != ".csv") {
-		std::cout << "Can't support non-CSV yet" << std::endl;
-		exit(-1);
-	    }
 	    args.flags |= 8;
 	    args.filename = optarg;
 	    break;

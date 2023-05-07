@@ -10,6 +10,8 @@
 
 #include "topDataStruc.h"
 
+#define DEG_AWARE_CAP_IDX 	0x3FFFFFFFFFFFULL
+
 template<typename T>
 class neighborhood;
 
@@ -564,16 +566,69 @@ public:
 };
 
 
+
+// ------------------------------degAwareRHH---------------------------------- NEW
 template<typename U>
 class neighborhood_iter<darhh<U>> {
 	friend class neighborhood<darhh<U>> ;
 private:
-	hd_rhh<U> *hd;
-	ld_rhh<U> *ld;
-	typename hd_rhh<U>::iter hd_iter;
-	typename ld_rhh<U>::iter ld_iter;
-	bool low_degree;
+	NodeID src;
+	u64 idx = 0;
+	const rhh<NodeID, Weight>* __restrict hdMap;
+	const rhh<EdgeID, Weight>* __restrict ldMap;
+	u64 cap;
+
+	void updateIdxNext(){
+		if(idx == DEG_AWARE_CAP_IDX){
+			return;
+		}
+		if(hdMap){
+			idx++;
+			while(idx < cap){
+				if(hdMap->arr[idx].valid()){
+					return;
+				}
+				idx++;
+			}
+			if(idx == cap){
+				idx = DEG_AWARE_CAP_IDX;
+			}
+		}
+		else{
+			idx++;
+			if(idx == cap){
+				idx = 0;
+			}
+			while(!ldMap->arr[idx].empty()){
+				if(ldMap->arr[idx].key.first == src && ldMap->arr[idx].valid()){
+					return;
+				}
+				idx++;
+				if(idx == cap){
+					idx = 0;
+				}
+			}
+			if(ldMap->arr[idx].empty()){
+				idx = DEG_AWARE_CAP_IDX;
+			}
+		}
+	}
+
 public:
+	neighborhood_iter<darhh<U>>(NodeID src, u64 idx, const rhh<NodeID, Weight>* __restrict hdMap, const rhh<EdgeID, Weight>* __restrict ldMap) :
+		src(src), idx(idx), hdMap(hdMap), ldMap(ldMap){
+		if(hdMap){
+			cap = hdMap->capacity();
+		}
+		else{
+			cap = ldMap->capacity();
+			if(idx == -1){
+				idx = src % cap - 1;
+			}
+		}
+		updateIdxNext();
+	}
+
 	inline neighborhood_iter& operator=(neighborhood_iter const &it);
 	inline bool operator!=(neighborhood_iter const &it);
 	neighborhood_iter& operator++();
@@ -585,78 +640,41 @@ public:
 };
 
 template<typename U>
-void neighborhood_iter<darhh<U>>::set_begin(darhh<U> *ds, NodeID src, bool in) {
-	if (in) {
-		ld = ds->in[ds->pt_hash(src)]->ld;
-		hd = ds->in[ds->pt_hash(src)]->hd;
-	} else {
-		ld = ds->out[ds->pt_hash(src)]->ld;
-		hd = ds->out[ds->pt_hash(src)]->hd;
-	}
-	low_degree = ld->get_degree(src);
-	if (low_degree)
-		ld_iter = ld->begin(src);
-	else
-		hd_iter = hd->begin(src);
-}
-
-template<typename U>
-void neighborhood_iter<darhh<U>>::set_end() {
-	ld_iter.cursor = nullptr;
-	hd_iter.cursor = nullptr;
-}
-
-template<typename U>
-neighborhood_iter<darhh<U>>&
-neighborhood_iter<darhh<U>>::operator=(neighborhood_iter const &other) {
-	hd = other.hd;
-	ld = other.ld;
-	hd_iter = other.hd_iter;
-	ld_iter = other.ld_iter;
-	low_degree = other.low_degree;
-	return *this;
-}
-
-template<typename U>
 bool neighborhood_iter<darhh<U>>::operator!=(neighborhood_iter const &it) {
-	if (low_degree)
-		return ld_iter != it.ld_iter;
-	else
-		return hd_iter != it.hd_iter;
+	return idx != it.idx;
 }
 
 template<typename U>
 neighborhood_iter<darhh<U>>& neighborhood_iter<darhh<U>>::operator++() {
-	if (low_degree)
-		++ld_iter;
-	else
-		++hd_iter;
+	updateIdxNext();
 	return *this;
 }
 
 template<typename U>
 neighborhood_iter<darhh<U>>& neighborhood_iter<darhh<U>>::operator++(int) {
-	if (low_degree)
-		++ld_iter;
-	else
-		++hd_iter;
+	updateIdxNext();
 	return *this;
 }
 
 template<typename U>
 NodeID neighborhood_iter<darhh<U>>::operator*() {
-	if (low_degree)
-		return ld_iter.cursor->getNodeID();
-	else
-		return hd_iter.cursor->getNodeID();
+	if(hdMap){
+		return hdMap->arr[idx].key;
+	}
+	else{
+		return ldMap->arr[idx].key.second;
+	}
 }
 
 template<typename U>
 Weight neighborhood_iter<darhh<U>>::extractWeight() {
-	if (low_degree)
-		return ld_iter.cursor->getWeight();
-	else
-		return hd_iter.cursor->getWeight();
+	if(hdMap){
+		return hdMap->arr[idx].val;
+	}
+	else{
+		return ldMap->arr[idx].val;
+	}
+	return 0;
 }
 
 template<typename T>
@@ -802,19 +820,27 @@ private:
 	NodeID src;
 	darhh<U> *ds;
 	bool in;
+	u32 thId;
 public:
 	neighborhood(NodeID src, darhh<U> *ds, bool in) :
 			src(src), ds(ds), in(in) {
+		thId = (src / 64) % ds->num_threads;
 	}
 	iter begin() {
-		iter it;
-		it.set_begin(ds, src, in);
-		return it;
+		if(in){
+			return iter(src, -1, ds->vArray[src].inMap, &ds->thInfo[thId].inLDHash);
+		}
+		else{
+			return iter(src, -1, ds->vArray[src].outMap, &ds->thInfo[thId].outLDHash);
+		}
 	}
 	iter end() {
-		iter it;
-		it.set_end();
-		return it;
+		if(in){
+			return iter(src, DEG_AWARE_CAP_IDX, ds->vArray[src].inMap, &ds->thInfo[thId].inLDHash);
+		}
+		else{
+			return iter(src, DEG_AWARE_CAP_IDX, ds->vArray[src].outMap, &ds->thInfo[thId].outLDHash);
+		}
 	}
 };
 

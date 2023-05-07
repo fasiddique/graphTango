@@ -29,6 +29,7 @@ public:
 	inline void mark_deleted();
 	inline bool empty() const;
 	inline bool deleted() const;
+	inline bool valid() const;
 	std::string to_string();
 };
 
@@ -40,6 +41,11 @@ void rhh_elem<K, V>::mark_deleted() {
 template<typename K, typename V>
 bool rhh_elem<K, V>::empty() const {
 	return hash == 0;
+}
+
+template<typename K, typename V>
+bool rhh_elem<K, V>::valid() const {
+	return (hash >> 30) == 1;
 }
 
 template<typename K, typename V>
@@ -66,19 +72,32 @@ public:
 			rhh(cap, load_factor, V { }) {
 	}
 	rhh(int cap) :
-			rhh(cap, 0.9) {
+			rhh(cap, 0.5) {
 	}
 	rhh() :
-			rhh(pow(2, 20)) {
+			rhh(32) {
 	}
 	rhh(rhh&) = delete;
 	void insert_elem(K key, V val);
+	void insert(K key, V val){
+		insert_elem(key, val);
+	}
 	bool delete_elem(K const &key);
+	void erase(K const &key){
+		delete_elem(key);
+	}
 	bool get_elem(K const &key, V &val) const;
 	inline uint32_t get_capacity() const;
 	inline uint32_t get_size() const;
+	inline uint32_t size() const{
+		return sz;
+	}
+	inline uint32_t capacity() const{
+		return get_capacity();
+	}
 	int32_t avg_probe_dist() const;
 	std::string to_string() const;
+	uint32_t sz = 0;
 protected:
 	inline uint32_t hash(K const &key) const;
 	inline uint32_t desired_pos(uint32_t const &hash) const;
@@ -87,7 +106,7 @@ protected:
 	bool find_elem(K const &key, uint32_t &i) const;
 	void double_capacity();
 	float load_factor;
-	uint32_t size = 0;
+
 };
 
 template<typename K, typename V>
@@ -119,26 +138,26 @@ void rhh<K, V>::do_insert(uint32_t const &pos, uint32_t const &hash, K const &ke
 	arr[pos].key = key;
 	arr[pos].val = val;
 	arr[pos].hash = hash;
-	++size;
+	++sz;
 }
 
 template<typename K, typename V>
 void rhh<K, V>::insert_elem(K key, V val) {
-	if (size >= arr.capacity() * load_factor)
+	if (sz >= arr.capacity() * load_factor)
 		double_capacity();
 	uint32_t h = hash(key);
 	uint32_t origin = desired_pos(h);
 	uint32_t pos = origin;
 	uint32_t existing = 0;
 	for (;;) {
-		if (arr[pos].empty()) {
+		if (arr[pos].empty() || arr[pos].deleted()) {
 			do_insert(pos, h, key, val);
 			return;
 		}
 		if (arr[pos].key == key) {
 			arr[pos].val = val;
-			if (arr[pos].deleted())
-				arr[pos].hash = h;
+			//if (arr[pos].deleted())
+			//	arr[pos].hash = h;
 			return;
 		}
 		existing = probe_dist(desired_pos(arr[pos].hash), pos);
@@ -161,7 +180,7 @@ bool rhh<K, V>::delete_elem(K const &key) {
 	bool found = find_elem(key, i);
 	if (found) {
 		arr[i].mark_deleted();
-		--size;
+		--sz;
 	}
 	return found;
 }
@@ -182,7 +201,7 @@ uint32_t rhh<K, V>::get_capacity() const {
 
 template<typename K, typename V>
 uint32_t rhh<K, V>::get_size() const {
-	return this->size;
+	return sz;
 }
 
 template<typename K, typename V>
@@ -212,7 +231,7 @@ template<typename K, typename V>
 void rhh<K, V>::double_capacity() {
 	std::vector<rhh_elem<K, V>> old_arr(arr);
 	arr = std::vector<rhh_elem<K, V>>(old_arr.capacity() * 2, rhh_elem<K, V>());
-	size = 0;
+	sz = 0;
 	for (uint32_t i = 0; i < old_arr.capacity(); ++i) {
 		if (!old_arr[i].empty() && !old_arr[i].deleted())
 			insert_elem(old_arr[i].key, old_arr[i].val);
