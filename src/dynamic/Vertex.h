@@ -86,31 +86,39 @@ template <typename Neigh>
 class alignas(CACHE_LINE_SIZE) EdgeArray{
 
 private:
-	void rebuildHashTable(u64 newCap){
-		//allocate new map
-		etype.type2_3.mapArr = (DstLocPair*)globalAllocator.allocate(newCap * sizeof(DstLocPair));
-		etype.type2_3.mapSize = newCap;
+	void rebuildHashTable(u64 oldCap, u64 newCap){
+		if(oldCap > TH1){
+			//free old map
+			globalAllocator.freePow2(etype.type2_3.mapArr, oldCap * 2 * sizeof(DstLocPair));
+			etype.type2_3.mapArr = nullptr;
+		}
 
-		DstLocPair* __restrict locMap = etype.type2_3.mapArr;
-		memset(locMap, -1, newCap * sizeof(DstLocPair));
+		if(newCap > TH1){
+			//allocate new map
+			etype.type2_3.mapArr = (DstLocPair*)globalAllocator.allocate(newCap * 2 * sizeof(DstLocPair));
 
-		const u32 mask = newCap - 1;
-		//add existing nodes to hash
-		const Neigh* __restrict nn = etype.type2_3.neighArr;
-		for(u64 i = 0; i < degree; i++){
-			const u32 dst = nn[i].node;
-			u32 idx = dst & mask;
-			while(true){
-				if(locMap[idx].dst == FLAG_EMPTY_SLOT){
-					//found insertion point
-					locMap[idx].dst = dst;
-					locMap[idx].loc = i;
-					break;
-				}
-				//move on
-				idx++;
-				if(idx == newCap){
-					idx = 0;
+			DstLocPair* __restrict locMap = etype.type2_3.mapArr;
+			memset(locMap, -1, newCap * 2 * sizeof(DstLocPair));
+
+			const u32 mask = newCap * 2 - 1;
+
+			//add existing nodes to hash
+			const Neigh* __restrict nn = etype.type2_3.neighArr;
+			for(u64 i = 0; i < degree; i++){
+				const u32 dst = nn[i].node;
+				u32 idx = dst & mask;
+				while(true){
+					if(locMap[idx].dst == FLAG_EMPTY_SLOT){
+						//found insertion point
+						locMap[idx].dst = dst;
+						locMap[idx].loc = i;
+						break;
+					}
+					//move on
+					idx++;
+					if(idx == (newCap * 2)){
+						idx = 0;
+					}
 				}
 			}
 		}
@@ -119,25 +127,29 @@ private:
 
 public:
 
-	const static u64 TH0 = ((CACHE_LINE_SIZE - sizeof(u32) - sizeof(u32)) / sizeof(Neigh));
+	//const static u64 TH0 = ((CACHE_LINE_SIZE - sizeof(u32) - sizeof(u32)) / sizeof(Neigh));
 	const static u64 TH1 = HYBRID_HASH_PARTITION;
 
 	u32 degree = 0;
-	u32 capacity = TH0;
+	u32 capacity = 8;
 
 	union {
-		struct {
-			Neigh neigh[TH0];
-		} type1;
 
 		struct {
 			Neigh* 			__restrict neighArr = nullptr;
 			DstLocPair* 	__restrict mapArr = nullptr;
-			u64 mapSize = 0;
 		} type2_3;
 	} etype;
 
 	u8 __pad[CACHE_LINE_SIZE - sizeof(u32) - sizeof(u32) - sizeof(etype)];
+
+	//EdgeArray(){
+	//	etype.type2_3.neighArr = (Neigh*)globalAllocator.allocPow2(capacity * sizeof(Neigh));
+	//}
+
+	~EdgeArray(){
+		//globalAllocator.freePow2(etype.type2_3.neighArr, size)
+	}
 
 	void insertEdge(const Idx dstId, const Weight weight, u64& edgeCnt){
 		//First, check if needs expanding
@@ -145,32 +157,20 @@ public:
 			capacity = getNextPow2(capacity * 2);
 			Neigh* __restrict newPtr = (Neigh*)globalAllocator.allocPow2(capacity * sizeof(Neigh));
 
-			//handle old type
-			if(degree <= TH0){
-				memcpy(newPtr, etype.type1.neigh, degree * sizeof(Neigh));
-			}
-			else {
-				memcpy(newPtr, etype.type2_3.neighArr, degree * sizeof(Neigh));
-				globalAllocator.freePow2(etype.type2_3.neighArr, degree * sizeof(Neigh));
-			}
+			//Type 2 or 3
+			memcpy(newPtr, etype.type2_3.neighArr, degree * sizeof(Neigh));
+			globalAllocator.freePow2(etype.type2_3.neighArr, capacity / 2 * sizeof(Neigh));
 			etype.type2_3.neighArr = newPtr;
 
-			//handle new type
-			if(degree <= TH1 && capacity > TH1){
-				rebuildHashTable(capacity);
-			}
+			//Grow hash table if needed
+			rebuildHashTable(capacity / 2, capacity);
 		}
-
-		
 
 		Neigh* __restrict currNeighArr;
 
-		if(capacity <= TH0){
-			currNeighArr = etype.type1.neigh;
-		}
-		else{
-			currNeighArr = etype.type2_3.neighArr;
-		}
+		
+		currNeighArr = etype.type2_3.neighArr;
+		
 
 		//search and insert if not found
 		if(capacity <= TH1){
@@ -185,14 +185,7 @@ public:
 		}
 		else{
 			//type 3, use hash table + adj list
-			//Grow hash table if needed
-			float loadFactor = 1.0 * degree / etype.type2_3.mapSize;
-			if(loadFactor >= GT_MAX_LOAD_FACTOR) {
-				//free old map
-				globalAllocator.freePow2(etype.type2_3.mapArr, etype.type2_3.mapSize * sizeof(DstLocPair));
-				rebuildHashTable(etype.type2_3.mapSize * 2);
-			}
-			u32 idx = dstId & (etype.type2_3.mapSize - 1);
+			u32 idx = dstId & (capacity * 2 - 1);
 			DstLocPair* __restrict locMap = etype.type2_3.mapArr;
 			DstLocPair* __restrict insLoc = nullptr;
 			//probe = 0;
@@ -218,7 +211,7 @@ public:
 				}
 				//move on
 				idx++;
-				if(idx == etype.type2_3.mapSize){
+				if(idx == (capacity * 2)){
 					idx = 0;
 				}
 			}
@@ -235,12 +228,8 @@ public:
 		Neigh* __restrict currNeighArr;
 		Neigh* __restrict nn = nullptr;
 
-		if(capacity <= TH0){
-			currNeighArr = etype.type1.neigh;
-		}
-		else{
-			currNeighArr = etype.type2_3.neighArr;
-		}
+		currNeighArr = etype.type2_3.neighArr;
+		
 
 		//search
 		if(capacity <= TH1){
@@ -265,7 +254,7 @@ public:
 		}
 		else{
 			//using hashed mode
-			u32 idx = dstId & (etype.type2_3.mapSize - 1);
+			u32 idx = dstId & (capacity * 2 - 1);
 			DstLocPair* __restrict locMap = etype.type2_3.mapArr;
 			while(true){
 				if(locMap[idx].dst == dstId){
@@ -282,10 +271,10 @@ public:
 						currNeighArr[loc] = currNeighArr[degree];
 
 						//point to correct location of the swapped entry
-						u32 idxMoved = node & (etype.type2_3.mapSize - 1);
+						u32 idxMoved = node & (capacity * 2 - 1);
 						while(locMap[idxMoved].dst != node){
 							idxMoved++;
-							if(idxMoved == etype.type2_3.mapSize){
+							if(idxMoved == (capacity * 2)){
 								idxMoved = 0;
 							}
 						}
@@ -299,13 +288,13 @@ public:
 				}
 				//move on
 				idx++;
-				if(idx == etype.type2_3.mapSize){
+				if(idx == (capacity * 2)){
 					idx = 0;
 				}
 			}
 		}
 
-		if((capacity > TH0) && ((degree * 4) <= capacity)){
+		if(((degree * 4) <= capacity)){
 			//time to reduce capacity
 			const u64 oldCap = capacity;
 			const u64 newCap = capacity / 2;
@@ -314,23 +303,16 @@ public:
 			Neigh* __restrict oldPtr = etype.type2_3.neighArr;
 			Neigh* __restrict newPtr;
 
-			if(newCap <= TH0){
-				//moving from type 2 or 3 to type 1
-				newPtr = etype.type1.neigh;
-				capacity = TH0;
-			}
-			else{
-				etype.type2_3.neighArr = (Neigh*)globalAllocator.allocPow2(newCap * sizeof(Neigh));
-				newPtr = etype.type2_3.neighArr;
-			}
+			etype.type2_3.neighArr = (Neigh*)globalAllocator.allocPow2(newCap * sizeof(Neigh));
+			newPtr = etype.type2_3.neighArr;
 
 			//copy old adjList and free
 			memcpy(newPtr, oldPtr, degree * sizeof(Neigh));
 			globalAllocator.freePow2(oldPtr, oldCap * sizeof(Neigh));
 
 			//shrink or delete hash table if needed
-			//rebuildHashTable(oldCap, newCap);
-		}   
+			rebuildHashTable(oldCap, newCap);
+		}
 	}
 };
 

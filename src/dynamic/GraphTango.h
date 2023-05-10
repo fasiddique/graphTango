@@ -103,10 +103,12 @@ public:
 		#pragma omp parallel for
 		for(u64 i = 0; i < numNodes; i++){
 			vArray[i].inEdges.degree = 0;
-			vArray[i].inEdges.capacity = EdgeArray<Neigh>::TH0;
+			vArray[i].inEdges.capacity = 8;
+			vArray[i].inEdges.etype.type2_3.neighArr = (Neigh*)globalAllocator.allocPow2(8 * sizeof(Neigh));
 
 			vArray[i].outEdges.degree = 0;
-			vArray[i].outEdges.capacity = EdgeArray<Neigh>::TH0;
+			vArray[i].outEdges.capacity = 8;
+			vArray[i].outEdges.etype.type2_3.neighArr = (Neigh*)globalAllocator.allocPow2(8 * sizeof(Neigh));
 		}
 
 		#pragma omp parallel for
@@ -115,7 +117,7 @@ public:
 			thInfo[i].outBuckets.resize(LB_NUMBER_OF_BUCKETS);
 		}
 
-		cout << "TH0: " << EdgeArray<Neigh>::TH0 << endl;
+		//cout << "TH0: " << EdgeArray<Neigh>::TH0 << endl;
 		cout << "TH1: " << EdgeArray<Neigh>::TH1 << endl;
 		cout << "Sizeof ThreadInfo: " << sizeof(ThreadInfo) << endl;
 		cout << "Sizeof EdgeArray: " << sizeof(EdgeArray<Neigh>) << endl;

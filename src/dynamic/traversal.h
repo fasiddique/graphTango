@@ -793,21 +793,11 @@ private:
 public:
 	neighborhood(NodeID _node, GraphTango<U> *_ds, bool _in_neigh) {
 		if(_in_neigh){
-			if(_ds->vArray[_node].inEdges.capacity <= EdgeArray<U>::TH0){
-				_start = _ds->vArray[_node].inEdges.etype.type1.neigh;
-			}
-			else{
-				_start = _ds->vArray[_node].inEdges.etype.type2_3.neighArr;
-			}
+			_start = _ds->vArray[_node].inEdges.etype.type2_3.neighArr;
 			_size = _ds->vArray[_node].inEdges.degree;
 		}
 		else{
-			if(_ds->vArray[_node].outEdges.capacity <= EdgeArray<U>::TH0){
-				_start = _ds->vArray[_node].outEdges.etype.type1.neigh;
-			}
-			else{
-				_start = _ds->vArray[_node].outEdges.etype.type2_3.neighArr;
-			}
+			_start = _ds->vArray[_node].outEdges.etype.type2_3.neighArr;
 			_size = _ds->vArray[_node].outEdges.degree;
 		}
 	}
