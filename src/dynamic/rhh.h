@@ -75,7 +75,7 @@ public:
 			rhh(cap, 0.5) {
 	}
 	rhh() :
-			rhh(32) {
+			rhh(16) {
 	}
 	rhh(rhh&) = delete;
 	void insert_elem(K key, V val);
@@ -150,14 +150,14 @@ void rhh<K, V>::insert_elem(K key, V val) {
 	uint32_t pos = origin;
 	uint32_t existing = 0;
 	for (;;) {
-		if (arr[pos].empty() || arr[pos].deleted()) {
+		if (arr[pos].empty()) {
 			do_insert(pos, h, key, val);
 			return;
 		}
 		if (arr[pos].key == key) {
 			arr[pos].val = val;
-			//if (arr[pos].deleted())
-			//	arr[pos].hash = h;
+			if (arr[pos].deleted())
+				arr[pos].hash = h;
 			return;
 		}
 		existing = probe_dist(desired_pos(arr[pos].hash), pos);

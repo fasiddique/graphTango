@@ -48,6 +48,8 @@ typedef		I64			Idx;
 #define		LINEAR_BUFF_SIZE			512UL
 #endif
 
+#define 	LD_PER_THREAD 				8
+
 typedef struct {
 	u32 dst;
 	u32 loc;

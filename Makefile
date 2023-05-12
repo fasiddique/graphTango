@@ -4,8 +4,8 @@ C = g++
 CFLAGS = -O2 -g -std=c++11 -fpermissive
 
 CXX = g++
-#CXXFLAGS = -std=c++11 -g -pthread -fopenmp -O3
 CXXFLAGS = -std=c++11 -g -pthread -fopenmp -O3
+#CXXFLAGS = -std=c++11 -g -pthread -fopenmp -O0
 #CXXFLAGS = -std=c++11 -g -pthread -fopenmp
 #CXXFLAGS = -std=c++11 -g -pthread
 

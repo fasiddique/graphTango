@@ -821,25 +821,27 @@ private:
 	darhh<U> *ds;
 	bool in;
 	u32 thId;
+	u32 ldId;
 public:
 	neighborhood(NodeID src, darhh<U> *ds, bool in) :
 			src(src), ds(ds), in(in) {
 		thId = (src / 64) % ds->num_threads;
+		ldId = src % LD_PER_THREAD;
 	}
 	iter begin() {
 		if(in){
-			return iter(src, -1, ds->vArray[src].inMap, &ds->thInfo[thId].inLDHash);
+			return iter(src, -1, ds->vArray[src].inMap, &ds->thInfo[thId].inLDHash[ldId]);
 		}
 		else{
-			return iter(src, -1, ds->vArray[src].outMap, &ds->thInfo[thId].outLDHash);
+			return iter(src, -1, ds->vArray[src].outMap, &ds->thInfo[thId].outLDHash[ldId]);
 		}
 	}
 	iter end() {
 		if(in){
-			return iter(src, DEG_AWARE_CAP_IDX, ds->vArray[src].inMap, &ds->thInfo[thId].inLDHash);
+			return iter(src, DEG_AWARE_CAP_IDX, ds->vArray[src].inMap, &ds->thInfo[thId].inLDHash[ldId]);
 		}
 		else{
-			return iter(src, DEG_AWARE_CAP_IDX, ds->vArray[src].outMap, &ds->thInfo[thId].outLDHash);
+			return iter(src, DEG_AWARE_CAP_IDX, ds->vArray[src].outMap, &ds->thInfo[thId].outLDHash[ldId]);
 		}
 	}
 };

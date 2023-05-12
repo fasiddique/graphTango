@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
 	logFile << totTime << endl;
 	cout << "Total insertion time: " << totTime << endl;
 
-	t.Start();
+	/*t.Start();
 	alg.performAlg();
 	t.Stop();
 
@@ -85,9 +85,9 @@ int main(int argc, char *argv[]) {
 	}
 	file.close();
 
-	logFile << totTime << endl;
+	logFile << totTime << endl;*/
 	logFile.close();
-	cout << "Total deletion time: " << totTime << endl;
+	//cout << "Total deletion time: " << totTime << endl;
 
 	ds->print();
 #ifdef CALC_EDGE_TOUCHED
