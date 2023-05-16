@@ -311,7 +311,7 @@ void stinger::print_eb(stinger_eb* eb)
 
 void stinger::print(void) {
     u64 totMem = 0;
-    totMem += vertices.size() * sizeof(stinger_vertex);
+    totMem += vertices.capacity() * sizeof(stinger_vertex);
     for (const auto &ver : vertices) {
         auto curr_in_ptr = ver.in_neighbors;
         while(curr_in_ptr != nullptr) {
