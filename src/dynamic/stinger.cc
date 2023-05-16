@@ -310,6 +310,21 @@ void stinger::print_eb(stinger_eb* eb)
 }
 
 void stinger::print(void) {
+    u64 totMem = 0;
+    totMem += vertices.size() * sizeof(stinger_vertex);
+    for (const auto &ver : vertices) {
+        auto curr_in_ptr = ver.in_neighbors;
+        while(curr_in_ptr != nullptr) {
+            totMem += sizeof(stinger_eb);
+            curr_in_ptr = curr_in_ptr->next;
+        }
+        auto curr_out_ptr = ver.out_neighbors;
+        while(curr_out_ptr != nullptr) {
+            totMem += sizeof(stinger_eb);
+            curr_out_ptr = curr_out_ptr->next;
+        }
+    }
+    std::cout << "Total Memory for Stinger: " << totMem << std::endl;
 //	insSucc = insTot - insFail;
 //	std::cout << "Inserts--------------------" << std::endl;
 //	std::cout << "    Total: " << insTot << std::endl;
