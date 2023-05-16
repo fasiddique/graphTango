@@ -344,6 +344,23 @@ int64_t adListChunked<T>::out_degree(NodeID n) {
 
 template <typename T>
 void adListChunked<T>::print(void) {
+    u64 totMem = 0;
+    for (const auto &p : in) {
+        totMem += p->partAdList->neighbors.size()*sizeof(std::vector<T>);
+        for (const auto &nei : p->partAdList->neighbors) {
+            totMem += sizeof(T)*nei.size();
+        }
+    }
+
+    for (const auto &p : out) {
+        totMem += p->partAdList->neighbors.size()*sizeof(std::vector<T>);
+        for (const auto &nei : p->partAdList->neighbors) {
+            totMem += sizeof(T)*nei.size();
+        }
+    }
+
+    std::cout << "Total Memory adListChunked: " << totMem << std::endl;
+
 //	for(const auto& p : in){
 //		insTot += p->partAdList->insTot;
 //		insSucc += p->partAdList->insSucc;

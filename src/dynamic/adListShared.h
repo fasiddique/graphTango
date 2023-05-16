@@ -272,6 +272,19 @@ int64_t adListShared<T>::out_degree(NodeID n)
 
 template <typename T>
 void adListShared<T>::print() {
+    u64 totMem = 0;
+    totMem += out_neighbors.size()*sizeof(std::vector<T>);
+    for (const auto &nei : out_neighbors) {
+        totMem += sizeof(T)*nei.size();
+    }
+    totMem += in_neighbors.size()*sizeof(std::vector<T>);
+    for (const auto &nei : in_neighbors) {
+        totMem += sizeof(T)*nei.size();
+    }
+    totMem += in_mutex.size()* (sizeof(std::unique_ptr<std::mutex>) + sizeof(std::mutex));
+    totMem += out_mutex.size()* (sizeof(std::unique_ptr<std::mutex>) + sizeof(std::mutex));
+    std::cout << "Total Memory adListShared: " << totMem << std::endl;
+
 //	std::cout << "Inserts--------------------" << std::endl;
 //	std::cout << "    Total: " << insTot << std::endl;
 //	std::cout << "    Succ : " << insSucc << std::endl;
