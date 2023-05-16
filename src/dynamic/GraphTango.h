@@ -34,6 +34,8 @@
 
 using namespace std;
 
+extern u64 globalMaxIn, globalMaxOut, localMaxIn, localMaxOut;
+
 template<typename Neigh>
 class GraphTango : public dataStruc {
 
@@ -192,6 +194,15 @@ public:
 	void update(const EdgeList& el) override {
 		//probe = 0;
 		const u64 batchSize = el.size();
+		std::unordered_map<u64, u64> inDeg, outDeg;
+		for(u64 i = 0; i < batchSize; i++){
+			const u64 src = el[i].source;
+			const u64 dst = el[i].destination;
+			inDeg[dst]++;
+			outDeg[src]++;
+			localMaxIn = max(localMaxIn, inDeg[dst]);
+			localMaxOut = max(localMaxOut, outDeg[src]);
+		}
 
 #ifdef _OPENMP
 		const u64 elemPerTh = ceil(1.0 * batchSize / num_threads);

@@ -12,6 +12,7 @@
 #include "parser.h"
 #include "../common/timer.h"
 
+u64 globalMaxIn = 0, globalMaxOut = 0, localMaxIn = 0, localMaxOut = 0;
 
 using namespace std;
 /* Main thread that launches everything else */
@@ -38,18 +39,21 @@ int main(int argc, char *argv[]) {
 	double totTime = 0.0;
 	while (!file.eof()) {
 		readBatchFromCSV(el, file, opts.batch_size, batch_id, opts.weighted, VMAP, lastAssignedNodeID);
-
+		localMaxIn = 0;
+		localMaxOut = 0;
 		t.Start();
 		ds->update(el);
 		t.Stop();
-
+		globalMaxIn = std::max(globalMaxIn, localMaxIn);
+		globalMaxOut = std::max(globalMaxOut, localMaxOut);
 		totTime += t.Seconds();
 		cout << "Inserted Batch " << batch_id << ": Nodes " << ds->num_nodes << ", Edges " << ds->num_edges << endl;
 
 		batch_id++;
 	}
 	file.close();
-
+	std::cout << "Max In Degree: " << globalMaxIn << std::endl;
+	std::cout << "Max Out Degree: " << globalMaxOut << std::endl;
 	ofstream logFile("time.csv");
 	logFile << totTime << endl;
 	cout << "Total insertion time: " << totTime << endl;
